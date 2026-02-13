@@ -1,11 +1,13 @@
 import { useParams, Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, Calendar, Clock } from "lucide-react";
-import { movies } from "../data/movies";
+import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
 
 export function MovieDetail() {
   const { id } = useParams();
-  const movie = movies.find((m) => m.id === id);
+  const { movies } = useLetterboxdMovies();
+  const decodedId = id ? decodeURIComponent(id) : id;
+  const movie = movies.find((m) => m.id === decodedId);
 
   if (!movie) {
     return (
@@ -15,13 +17,23 @@ export function MovieDetail() {
     );
   }
 
+  const watchedDateObj = movie.watchedDate ? new Date(movie.watchedDate) : null;
+  const watchedDateLabel =
+    watchedDateObj && !Number.isNaN(watchedDateObj.getTime())
+      ? watchedDateObj.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null;
+
   return (
     <div className="min-h-screen">
       {/* Backdrop */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black z-10" />
         <img
-          src={movie.backdrop}
+          src={movie.backdrop || movie.poster}
           alt=""
           className="w-full h-full object-cover opacity-30"
         />
@@ -98,20 +110,18 @@ export function MovieDetail() {
 
               {/* Metadata */}
               <div className="glass-panel p-6 space-y-4">
-                <div className="flex items-center gap-3 text-white/60">
-                  <Calendar className="w-5 h-5" />
-                  <span className="tracking-wide">
-                    Watched {new Date(movie.watchedDate).toLocaleDateString('en-US', { 
-                      month: 'long', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-white/60">
-                  <Clock className="w-5 h-5" />
-                  <span className="tracking-wide">{movie.runtime} minutes</span>
-                </div>
+                {watchedDateLabel && (
+                  <div className="flex items-center gap-3 text-white/60">
+                    <Calendar className="w-5 h-5" />
+                    <span className="tracking-wide">Watched {watchedDateLabel}</span>
+                  </div>
+                )}
+                {movie.runtime > 0 && (
+                  <div className="flex items-center gap-3 text-white/60">
+                    <Clock className="w-5 h-5" />
+                    <span className="tracking-wide">{movie.runtime} minutes</span>
+                  </div>
+                )}
                 <div className="flex gap-2 flex-wrap pt-2">
                   {movie.genre.map((g) => (
                     <span

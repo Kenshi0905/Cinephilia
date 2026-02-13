@@ -1,54 +1,64 @@
-import { movies } from "../data/movies";
+import React from "react";
 import { MovieCard } from "./MovieCard";
+import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
 
 export function MovieGrid() {
-  // Calculate positions for circular layout around center
-  const getCircularPosition = (index: number, total: number, radius: number, layer: number = 1) => {
-    const angle = (index / total) * 2 * Math.PI;
-    const x = Math.cos(angle) * radius * layer;
-    const y = Math.sin(angle) * radius * layer;
+  const { movies } = useLetterboxdMovies();
+
+  // Use only movies that have a poster for the hero ring,
+  // so the front page always shows actual artwork.
+  const moviesWithPoster = movies.filter((m) => !!m.poster);
+
+  // Define concentric rings around the CINEMA ARCHIVE title.
+  // We keep just two well-spaced rings to avoid any overlap.
+  const ringConfigs = [
+    // Inner ring: closest to the title
+    { maxCount: 8, radius: 320, scale: 0.9, blur: 0, opacity: 0.9 },
+    // Outer ring: pushed much further out and scaled down
+    { maxCount: 12, radius: 520, scale: 0.7, blur: 2, opacity: 0.7 },
+  ] as const;
+
+  const maxVisible = ringConfigs.reduce((sum, r) => sum + r.maxCount, 0);
+  const visibleMovies = moviesWithPoster.slice(0, maxVisible);
+
+  const getCircularPosition = (index: number, total: number, radius: number) => {
+    // Start from the top (-90deg) so the circle is nicely aligned
+    const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
     return { x, y };
   };
 
-  // Distribute movies in concentric circles
-  const itemsPerLayer = [8, 12, 16]; // How many items in each circular layer
-  let currentIndex = 0;
-  const moviePositions = movies.map((movie, index) => {
-    // Determine which layer this movie belongs to
-    let layer = 0;
-    let itemsBeforeLayer = 0;
-    let itemsInCurrentLayer = itemsPerLayer[0];
-    
-    for (let i = 0; i < itemsPerLayer.length; i++) {
-      if (index < itemsBeforeLayer + itemsPerLayer[i]) {
-        layer = i;
-        itemsInCurrentLayer = itemsPerLayer[i];
-        currentIndex = index - itemsBeforeLayer;
-        break;
-      }
-      itemsBeforeLayer += itemsPerLayer[i];
+  const moviePositions: {
+    movie: (typeof visibleMovies)[number];
+    style: React.CSSProperties;
+  }[] = [];
+
+  let offset = 0;
+  for (const ring of ringConfigs) {
+    const remaining = visibleMovies.length - offset;
+    if (remaining <= 0) break;
+
+    const count = Math.min(ring.maxCount, remaining);
+    for (let i = 0; i < count; i++) {
+      const movie = visibleMovies[offset + i];
+      const pos = getCircularPosition(i, count, ring.radius);
+
+      moviePositions.push({
+        movie,
+        style: {
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(${ring.scale})`,
+          filter: ring.blur > 0 ? `blur(${ring.blur}px)` : undefined,
+          opacity: ring.opacity,
+        },
+      });
     }
-    
-    // If we've gone past all defined layers, add to outermost layer
-    if (layer >= itemsPerLayer.length) {
-      layer = itemsPerLayer.length - 1;
-      itemsInCurrentLayer = itemsPerLayer[layer];
-      currentIndex = index % itemsInCurrentLayer;
-    }
-    
-    const baseRadius = 180; // Base radius in pixels
-    const pos = getCircularPosition(currentIndex, itemsInCurrentLayer, baseRadius, layer + 1);
-    
-    return {
-      movie,
-      style: {
-        position: 'absolute' as const,
-        left: '50%',
-        top: '50%',
-        transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`,
-      }
-    };
-  });
+
+    offset += count;
+  }
 
   return (
     <div className="min-h-screen pt-32 pb-24 px-8 relative overflow-hidden">
@@ -96,18 +106,19 @@ export function MovieGrid() {
           </p>
         </div>
 
-        {/* Movies arranged in circular pattern */}
+        {/* Movies arranged in concentric circular pattern */}
         <div className="absolute inset-0">
           {moviePositions.map(({ movie, style }, index) => (
             <div 
               key={movie.id} 
               style={style}
-              className="w-[140px] opacity-70 hover:opacity-100 hover:z-50 transition-opacity duration-500 pointer-events-auto"
+              className="w-[110px] md:w-[140px] hover:opacity-100 hover:z-50 transition-opacity duration-500 pointer-events-auto"
             >
               <MovieCard movie={movie} />
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );

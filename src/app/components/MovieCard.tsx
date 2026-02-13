@@ -9,7 +9,7 @@ interface MovieCardProps {
 
 export function MovieCard({ movie }: MovieCardProps) {
   return (
-    <Link to={`/movie/${movie.id}`} className="pointer-events-auto">
+    <Link to={`/movie/${encodeURIComponent(movie.id)}`} className="pointer-events-auto">
       <motion.div
         className="group relative aspect-[2/3] overflow-hidden cursor-pointer"
         initial={{ opacity: 0, y: 20 }}
