@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router";
+import { useParams, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, StarHalf, Calendar, Clock } from "lucide-react";
 import { useLetterboxdMovies } from "../data/useLetterboxdMovies";

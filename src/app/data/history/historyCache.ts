@@ -19,6 +19,14 @@ function normalizeKey(title: string, year: number | string): string {
   return `${cleanedTitle}|${cleanedYear}`;
 }
 
+function movieKey(movie: Movie): string {
+  const id = movie.id?.toLowerCase() ?? "";
+  if (id.startsWith("http://") || id.startsWith("https://")) {
+    return id;
+  }
+  return normalizeKey(movie.title, movie.year);
+}
+
 async function loadCsv(url: string): Promise<Record<string, string>[]> {
   // Add cache buster to ensure we get the latest file content
   // URLs from Vite imports might already have query params (e.g. ?url)
@@ -217,7 +225,7 @@ function mergeDistinctMovies(sources: Movie[][]): Movie[] {
 
   for (const list of sources) {
     for (const movie of list) {
-      const key = normalizeKey(movie.title, movie.year);
+      const key = movieKey(movie);
       const existing = map.get(key);
 
       if (!existing) {

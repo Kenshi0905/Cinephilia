@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter } from "react-router-dom";
 import { MovieGrid } from "./components/MovieGrid";
 import { MovieDetail } from "./components/MovieDetail";
 import { Layout } from "./components/Layout";

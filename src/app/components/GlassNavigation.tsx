@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, Link, useLocation } from "react-router";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Film, User, Search, X } from "lucide-react";
 import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
 import type { Movie } from "../data/movies";
