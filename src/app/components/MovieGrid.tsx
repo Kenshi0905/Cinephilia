@@ -67,41 +67,25 @@ export function MovieGrid() {
         {/* Centered Logo Block */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 text-center pointer-events-none">
           {/* Top line */}
-          <div className="w-[500px] h-[3px] bg-white/90 mb-3 mx-auto" style={{ transform: 'scaleX(1.15)' }}></div>
-          
-          {/* CINEMA */}
-          <h1 
-            className="text-white/95 leading-[0.8] mb-1" 
-            style={{ 
-              fontFamily: 'Bebas Neue, sans-serif', 
-              fontWeight: 400, 
-              fontSize: '10rem',
-              letterSpacing: '-0.05em',
-              textTransform: 'uppercase'
-            }}
-          >
-            CINEMA
-          </h1>
-          
-          {/* ARCHIVE */}
-          <h1 
-            className="text-white/95 leading-[0.8]" 
-            style={{ 
-              fontFamily: 'Bebas Neue, sans-serif', 
-              fontWeight: 400, 
-              fontSize: '10rem',
-              letterSpacing: '-0.05em',
-              textTransform: 'uppercase'
-            }}
-          >
-            ARCHIVE
-          </h1>
-          
+          <div className="w-[500px] h-[3px] bg-white/90 mb-6 mx-auto" style={{ transform: "scaleX(1.15)" }} />
+
+          {/* Logo image */}
+           <div className="mx-auto max-w-[260px] md:max-w-[320px] lg:max-w-[380px]">
+            <img
+              src="/cinema-archive-logo.png"
+              alt="Cinema Archive"
+              className="w-full h-auto"
+            />
+          </div>
+
           {/* Bottom line */}
-          <div className="w-[500px] h-[3px] bg-white/90 mt-3 mx-auto"></div>
-          
+          <div className="w-[500px] h-[3px] bg-white/90 mt-6 mx-auto" />
+
           {/* Subtitle */}
-          <p className="text-white/40 tracking-wider mt-6 text-sm" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 300 }}>
+          <p
+            className="text-white/40 tracking-wider mt-6 text-sm"
+            style={{ fontFamily: "Inter, sans-serif", fontWeight: 300 }}
+          >
             {movies.length} films watched
           </p>
         </div>

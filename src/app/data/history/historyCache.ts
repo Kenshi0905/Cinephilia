@@ -17,7 +17,7 @@ async function loadCsv(url: string): Promise<Record<string, string>[]> {
   }
 
   const text = await response.text();
-  const result = Papa.parse<Record<string, string>>(text, {
+  const result = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,
   });
@@ -26,7 +26,11 @@ async function loadCsv(url: string): Promise<Record<string, string>[]> {
     console.warn("CSV parse errors", result.errors.slice(0, 3));
   }
 
-  return result.data.filter((row) => Object.values(row).some((v) => v && v.trim() !== ""));
+  const rows = (result.data as Record<string, string>[]).filter((row: Record<string, string>) =>
+    Object.values(row).some((v) => typeof v === "string" && v.trim() !== "")
+  );
+
+  return rows;
 }
 
 async function loadReviewsFromCsv(): Promise<Movie[]> {
@@ -202,23 +206,24 @@ function mergeDistinctMovies(sources: Movie[][]): Movie[] {
         continue;
       }
 
-      // Prefer the one with a later watched date, or non-zero rating / non-empty review
       const existingDate = existing.watchedDate ? new Date(existing.watchedDate).getTime() : 0;
       const incomingDate = movie.watchedDate ? new Date(movie.watchedDate).getTime() : 0;
 
-      const incomingHasBetterMedia = (!existing.poster && !!movie.poster) || (!existing.backdrop && !!movie.backdrop);
+      // Merge per-field so we never lose ratings/reviews when we pick up posters from another source.
+      const mergedMovie: Movie = {
+        ...existing,
+        ...movie,
+        watchedDate: incomingDate > existingDate ? movie.watchedDate : existing.watchedDate,
+        rating: movie.rating > 0 ? movie.rating : existing.rating,
+        review: movie.review?.trim() ? movie.review : existing.review,
+        poster: movie.poster || existing.poster,
+        backdrop: movie.backdrop || existing.backdrop,
+        director: movie.director || existing.director,
+        runtime: movie.runtime || existing.runtime,
+        genre: movie.genre.length > 0 ? movie.genre : existing.genre,
+      };
 
-      const shouldReplace =
-        incomingDate > existingDate ||
-        (incomingDate === existingDate && (movie.rating > existing.rating || movie.review.length > existing.review.length)) ||
-        incomingHasBetterMedia;
-
-      if (shouldReplace) {
-        map.set(key, {
-          ...existing,
-          ...movie,
-        });
-      }
+      map.set(key, mergedMovie);
     }
   }
 
