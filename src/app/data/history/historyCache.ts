@@ -1,11 +1,12 @@
 import Papa from "papaparse";
 import type { Movie } from "../movies";
 
-// Explicitly import CSVs so Vite handles them as assets
-import reviewsUrl from "../letterboxd-exports/reviews.csv?url";
-import watchedUrl from "../letterboxd-exports/watched.csv?url";
-import diaryUrl from "../letterboxd-exports/diary.csv?url";
-import ratingsUrl from "../letterboxd-exports/ratings.csv?url";
+// Use runtime URLs so build does not require local CSV assets to exist
+const assetBase = import.meta.env.BASE_URL || "/";
+const reviewsUrl = `${assetBase}letterboxd-exports/reviews.csv`;
+const watchedUrl = `${assetBase}letterboxd-exports/watched.csv`;
+const diaryUrl = `${assetBase}letterboxd-exports/diary.csv`;
+const ratingsUrl = `${assetBase}letterboxd-exports/ratings.csv`;
 
 const STORAGE_KEY = "cinephilia_movie_history";
 
