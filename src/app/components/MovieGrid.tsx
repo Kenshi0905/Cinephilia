@@ -3,7 +3,7 @@ import { MovieCard } from "./MovieCard";
 import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
 
 export function MovieGrid() {
-  const { movies } = useLetterboxdMovies();
+  const { movies, loading, error } = useLetterboxdMovies();
 
   // Use only movies that have a poster for the hero ring,
   // so the front page always shows actual artwork.
@@ -102,6 +102,15 @@ export function MovieGrid() {
             </div>
           ))}
         </div>
+
+        {/* Empty/Loading state message */}
+        {moviesWithPoster.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-white/50 text-sm tracking-wider uppercase">
+              {loading ? "Loading your archive…" : error ? "Unable to fetch posters right now" : "No posters available yet"}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

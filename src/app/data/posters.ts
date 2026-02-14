@@ -14,7 +14,7 @@ function buildProxyUrl(targetUrl: string): string {
     return proxyTemplate.replace("{url}", encodeURIComponent(targetUrl));
   }
 
-  return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+  return `https://cors.isomorphic-git.org/${targetUrl}`;
 }
 
 function loadPosterCache(): Record<string, string> {

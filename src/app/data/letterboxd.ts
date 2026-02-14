@@ -24,7 +24,7 @@ function buildFetchUrl(rssUrl: string): string {
   }
 
   // Default to a public CORS-friendly proxy for development / personal use
-  return `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+  return `https://cors.isomorphic-git.org/${rssUrl}`;
 }
 
 function parseRatingFromTitle(title: string): number {

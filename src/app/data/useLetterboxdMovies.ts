@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { movies as fallbackMovies, type Movie } from "./movies";
+import type { Movie } from "./movies";
 import { fetchLetterboxdMovies } from "./letterboxd";
 import { loadHistoryFromExports, mergeAndCacheHistory } from "./history/historyCache";
 import { enrichMissingPosters } from "./posters";
@@ -12,7 +12,7 @@ interface UseLetterboxdMoviesResult {
 }
 
 export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
-  const [movies, setMovies] = useState<Movie[]>(fallbackMovies);
+  const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
