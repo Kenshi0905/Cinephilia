@@ -1,6 +1,14 @@
 import Papa from "papaparse";
 import type { Movie } from "../movies";
 
+// Explicitly import CSVs so Vite handles them as assets
+import reviewsUrl from "../letterboxd-exports/reviews.csv?url";
+import watchedUrl from "../letterboxd-exports/watched.csv?url";
+import diaryUrl from "../letterboxd-exports/diary.csv?url";
+import ratingsUrl from "../letterboxd-exports/ratings.csv?url";
+
+const STORAGE_KEY = "cinephilia_movie_history";
+
 function normalizeKey(title: string, year: number | string): string {
   const cleanedTitle = title
     .toLowerCase()
@@ -11,32 +19,45 @@ function normalizeKey(title: string, year: number | string): string {
 }
 
 async function loadCsv(url: string): Promise<Record<string, string>[]> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to load CSV: ${response.status}`);
+  // Add cache buster to ensure we get the latest file content
+  // URLs from Vite imports might already have query params (e.g. ?url)
+  // but usually for assets they are just paths.
+  const now = Date.now();
+  const separator = url.includes("?") ? "&" : "?";
+  const cleanUrl = `${url}${separator}t=${now}`;
+
+  try {
+    const response = await fetch(cleanUrl);
+    if (!response.ok) {
+      // Try without cache buster if it fails? No, just throw.
+      console.warn(`Failed to load CSV ${url}: ${response.status}`);
+      return [];
+    }
+
+    const text = await response.text();
+    const result = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    if (result.errors && result.errors.length > 0) {
+      console.warn("CSV parse errors", result.errors.slice(0, 3));
+    }
+
+    const rows = (result.data as Record<string, string>[]).filter((row: Record<string, string>) =>
+      Object.values(row).some((v) => typeof v === "string" && v.trim() !== "")
+    );
+
+    return rows;
+  } catch (err) {
+    console.warn("Failed to fetch/parse CSV", err);
+    return [];
   }
-
-  const text = await response.text();
-  const result = Papa.parse(text, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (result.errors && result.errors.length > 0) {
-    console.warn("CSV parse errors", result.errors.slice(0, 3));
-  }
-
-  const rows = (result.data as Record<string, string>[]).filter((row: Record<string, string>) =>
-    Object.values(row).some((v) => typeof v === "string" && v.trim() !== "")
-  );
-
-  return rows;
 }
 
 async function loadReviewsFromCsv(): Promise<Movie[]> {
   try {
-    const url = new URL("../letterboxd-exports/reviews.csv", import.meta.url).href;
-    const rows = await loadCsv(url);
+    const rows = await loadCsv(reviewsUrl);
 
     const movies: Movie[] = [];
 
@@ -76,8 +97,7 @@ async function loadReviewsFromCsv(): Promise<Movie[]> {
 
 async function loadWatchedFromCsv(): Promise<Movie[]> {
   try {
-    const url = new URL("../letterboxd-exports/watched.csv", import.meta.url).href;
-    const rows = await loadCsv(url);
+    const rows = await loadCsv(watchedUrl);
 
     const movies: Movie[] = [];
 
@@ -115,8 +135,7 @@ async function loadWatchedFromCsv(): Promise<Movie[]> {
 
 async function loadDiaryFromCsv(): Promise<Movie[]> {
   try {
-    const url = new URL("../letterboxd-exports/diary.csv", import.meta.url).href;
-    const rows = await loadCsv(url);
+    const rows = await loadCsv(diaryUrl);
 
     const movies: Movie[] = [];
 
@@ -155,8 +174,7 @@ async function loadDiaryFromCsv(): Promise<Movie[]> {
 
 async function loadRatingsFromCsv(): Promise<Movie[]> {
   try {
-    const url = new URL("../letterboxd-exports/ratings.csv", import.meta.url).href;
-    const rows = await loadCsv(url);
+    const rows = await loadCsv(ratingsUrl);
 
     const movies: Movie[] = [];
 
@@ -166,7 +184,7 @@ async function loadRatingsFromCsv(): Promise<Movie[]> {
 
       const year = Number.parseInt(row["Year"] ?? "0", 10) || 0;
       const rating = Number.parseFloat(row["Rating"] ?? "0") || 0;
-      const watchedDate = row["Date"] || "";
+      const watchedDate = row["Date"] ?? "";
       const letterboxdUri = row["Letterboxd URI"] ?? "";
 
       const movie: Movie = {
@@ -215,12 +233,27 @@ function mergeDistinctMovies(sources: Movie[][]): Movie[] {
         ...movie,
         watchedDate: incomingDate > existingDate ? movie.watchedDate : existing.watchedDate,
         rating: movie.rating > 0 ? movie.rating : existing.rating,
-        review: movie.review?.trim() ? movie.review : existing.review,
+        // Concatenate reviews if they differ
+        review: (() => {
+          const r1 = existing.review?.trim();
+          const r2 = movie.review?.trim();
+          if (!r1) return r2;
+          if (!r2) return r1;
+          if (r1 === r2) return r1; // Identical
+          if (r1.includes(r2)) return r1; // r2 is subset
+          if (r2.includes(r1)) return r2; // r1 is subset
+
+          // Different reviews. Concatenate with a nice separator.
+          // Check if dates are available to add context?
+          // For simplicity, just stack them with a divider.
+          return `${r1}\n\n───\n\n${r2}`;
+        })(),
         poster: movie.poster || existing.poster,
         backdrop: movie.backdrop || existing.backdrop,
         director: movie.director || existing.director,
         runtime: movie.runtime || existing.runtime,
         genre: movie.genre.length > 0 ? movie.genre : existing.genre,
+        id: existing.id // Keep existing ID if possible, usually the same
       };
 
       map.set(key, mergedMovie);
@@ -239,12 +272,32 @@ function mergeDistinctMovies(sources: Movie[][]): Movie[] {
   return merged;
 }
 
+function getLocalCache(): Movie[] {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn("Failed to parse local movie history", e);
+    return [];
+  }
+}
+
+function setLocalCache(movies: Movie[]) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(movies));
+  } catch (e) {
+    console.warn("Failed to save movie history to localStorage", e);
+  }
+}
+
 export async function loadHistoryFromExports(): Promise<Movie[]> {
   if (typeof window === "undefined") {
     return [];
   }
 
-  // Always (re)build from CSV exports so new data is picked up
+  // Load from multiple sources parallel
   const [reviews, watched, diary, ratings] = await Promise.all([
     loadReviewsFromCsv(),
     loadWatchedFromCsv(),
@@ -252,17 +305,23 @@ export async function loadHistoryFromExports(): Promise<Movie[]> {
     loadRatingsFromCsv(),
   ]);
 
-  const merged = mergeDistinctMovies([reviews, watched, diary, ratings]);
+  // Also include whatever is in localStorage (e.g. from previous RSS fetches)
+  const cached = getLocalCache();
+
+  const merged = mergeDistinctMovies([reviews, watched, diary, ratings, cached]);
+
+  // Update cache immediately to ensure CSV data is also locally saved for offline/faster subsequent loads
+  setLocalCache(merged);
 
   return merged;
 }
 
 export function mergeAndCacheHistory(existingHistory: Movie[], latestRemote: Movie[]): Movie[] {
-  if (typeof window === "undefined") {
-    return mergeDistinctMovies([existingHistory, latestRemote]);
-  }
-
   const merged = mergeDistinctMovies([existingHistory, latestRemote]);
+
+  if (typeof window !== "undefined") {
+    setLocalCache(merged);
+  }
 
   return merged;
 }

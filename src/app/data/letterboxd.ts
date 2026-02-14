@@ -27,6 +27,19 @@ function buildFetchUrl(rssUrl: string): string {
   return `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
 }
 
+function parseRatingFromTitle(title: string): number {
+  const match = title.match(/ - ([★½]+)$/);
+  if (!match) return 0;
+
+  const stars = match[1];
+  let rating = 0;
+  for (const char of stars) {
+    if (char === "★") rating += 1;
+    if (char === "½") rating += 0.5;
+  }
+  return rating;
+}
+
 function parseDescriptionToPosterAndReview(descriptionHtml: string): {
   poster: string;
   review: string;
@@ -46,11 +59,17 @@ function parseDescriptionToPosterAndReview(descriptionHtml: string): {
   const reviewParts: string[] = [];
 
   for (const p of paragraphs) {
+    // If the paragraph contains the poster image, skip it
+    if (p.querySelector("img")) continue;
+
     const text = p.textContent?.trim() ?? "";
     if (!text) continue;
 
     // Skip generic auto-generated "Watched on" notes if present
     if (/^Watched on /i.test(text)) continue;
+
+    // Skip "This review may contain spoilers" type text
+    if (/contains spoilers/i.test(text)) continue;
 
     reviewParts.push(text);
   }
@@ -67,55 +86,77 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
     return null;
   }
 
-  const response = await fetch(buildFetchUrl(rssUrl));
-  if (!response.ok) {
-    throw new Error(`Letterboxd RSS request failed with status ${response.status}`);
+  try {
+    const response = await fetch(buildFetchUrl(rssUrl));
+    if (!response.ok) {
+      throw new Error(`Letterboxd RSS request failed with status ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlText, "application/xml");
+
+    const itemNodes = Array.from(xml.querySelectorAll("channel > item"));
+
+    const movies: Movie[] = itemNodes.map((item, index) => {
+      const guid = item.querySelector("guid")?.textContent ?? `letterboxd-item-${index}`;
+
+      let filmTitle =
+        item.querySelector("letterboxd\\:filmTitle")?.textContent?.trim() ??
+        item.querySelector("title")?.textContent?.trim() ??
+        "Untitled";
+
+      // Parse rating from title if available (common in Letterboxd RSS)
+      let rating = 0;
+      const ratingFromTitle = parseRatingFromTitle(filmTitle);
+
+      // Clean title if it has the rating appended
+      if (ratingFromTitle > 0) {
+        filmTitle = filmTitle.replace(/ - [★½]+$/, "").trim();
+        rating = ratingFromTitle;
+      }
+
+      // Try specific memberRating tag (takes precedence if valid)
+      const ratingText = item.querySelector("letterboxd\\:memberRating")?.textContent;
+      if (ratingText) {
+        const parsed = Number.parseFloat(ratingText);
+        if (!isNaN(parsed) && parsed > 0) {
+          rating = parsed;
+        }
+      }
+
+      const yearText = item.querySelector("letterboxd\\:filmYear")?.textContent ?? "0";
+      const watchedDate = item.querySelector("letterboxd\\:watchedDate")?.textContent ?? "";
+
+      const descriptionCdata = item.querySelector("description")?.textContent ?? "";
+      const { poster, review } = parseDescriptionToPosterAndReview(descriptionCdata);
+
+      const year = Number.parseInt(yearText, 10) || 0;
+
+      // At this stage Letterboxd RSS does not expose director, runtime or genres
+      // directly, so we leave them empty / neutral. The UI is updated to handle
+      // missing values gracefully.
+      const movie: Movie = {
+        id: guid,
+        title: filmTitle,
+        year,
+        director: "",
+        rating,
+        poster, // Prioritize RSS poster
+        backdrop: poster,
+        review,
+        watchedDate,
+        runtime: 0,
+        genre: [],
+      };
+
+      return movie;
+    });
+
+    return movies;
+  } catch (err) {
+    console.warn("Failed to fetch/parse Letterboxd RSS", err);
+    return null;
   }
-
-  const xmlText = await response.text();
-
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(xmlText, "application/xml");
-
-  const itemNodes = Array.from(xml.querySelectorAll("channel > item"));
-
-  const movies: Movie[] = itemNodes.map((item, index) => {
-    const guid = item.querySelector("guid")?.textContent ?? `letterboxd-item-${index}`;
-
-    const filmTitle =
-      item.querySelector("letterboxd\\:filmTitle")?.textContent?.trim() ??
-      item.querySelector("title")?.textContent?.trim() ??
-      "Untitled";
-
-    const yearText = item.querySelector("letterboxd\\:filmYear")?.textContent ?? "0";
-    const ratingText = item.querySelector("letterboxd\\:memberRating")?.textContent ?? "0";
-    const watchedDate = item.querySelector("letterboxd\\:watchedDate")?.textContent ?? "";
-
-    const descriptionCdata = item.querySelector("description")?.textContent ?? "";
-    const { poster, review } = parseDescriptionToPosterAndReview(descriptionCdata);
-
-    const year = Number.parseInt(yearText, 10) || 0;
-    const rating = Number.parseFloat(ratingText) || 0;
-
-    // At this stage Letterboxd RSS does not expose director, runtime or genres
-    // directly, so we leave them empty / neutral. The UI is updated to handle
-    // missing values gracefully.
-    const movie: Movie = {
-      id: guid,
-      title: filmTitle,
-      year,
-      director: "",
-      rating,
-      poster,
-      backdrop: poster,
-      review,
-      watchedDate,
-      runtime: 0,
-      genre: [],
-    };
-
-    return movie;
-  });
-
-  return movies;
 }

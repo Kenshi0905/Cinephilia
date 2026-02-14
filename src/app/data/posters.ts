@@ -52,11 +52,13 @@ export async function enrichMissingPosters(movies: Movie[]): Promise<Movie[]> {
   const updated = [...movies];
   let changed = false;
   let fetchedCount = 0;
-  const MAX_FETCH_PER_RUN = 5; // avoid hammering Letterboxd
+  const MAX_FETCH_PER_RUN = 3; // Reduced to avoid issues
 
   for (let i = 0; i < updated.length; i++) {
     const movie = updated[i];
-    if (movie.poster) continue;
+
+    // If we already have a poster, assume it's good (e.g. from RSS) and don't re-fetch
+    if (movie.poster && movie.poster.length > 0) continue;
 
     const url = getLetterboxdUrlFromMovie(movie);
     if (!url) continue;

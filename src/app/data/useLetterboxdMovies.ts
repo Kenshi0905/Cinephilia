@@ -3,6 +3,7 @@ import { movies as fallbackMovies, type Movie } from "./movies";
 import { fetchLetterboxdMovies } from "./letterboxd";
 import { loadHistoryFromExports, mergeAndCacheHistory } from "./history/historyCache";
 import { enrichMissingPosters } from "./posters";
+import { enrichMissingDetails } from "./enrichDetails";
 
 interface UseLetterboxdMoviesResult {
   movies: Movie[];
@@ -27,15 +28,24 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
 
         if (history.length > 0) {
           setMovies(history);
-          // Start enriching posters for CSV-only movies in the background
-          enrichMissingPosters(history)
-            .then((enriched) => {
-              if (!isMounted) return;
-              setMovies(enriched);
-            })
-            .catch(() => {
-              // ignore enrichment errors
-            });
+
+          // Only enrich posters for movies that are unlikely to be in the RSS feed (index 50+)
+          const moviesToEnrich = history.slice(50);
+
+          if (moviesToEnrich.length > 0) {
+            enrichMissingPosters(moviesToEnrich)
+              .then((enrichedTail) => {
+                if (!isMounted) return;
+                setMovies((currentMovies) => {
+                  const newMovies = [...currentMovies];
+                  if (newMovies.length >= 50) {
+                    newMovies.splice(50, newMovies.length - 50, ...enrichedTail);
+                  }
+                  return newMovies;
+                });
+              })
+              .catch(() => { /* ignore */ });
+          }
         }
 
         const remoteMovies = await fetchLetterboxdMovies();
@@ -45,15 +55,35 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
           const merged = mergeAndCacheHistory(history, remoteMovies);
           setMovies(merged);
 
-          // Re-run poster enrichment after merging in RSS entries
-          enrichMissingPosters(merged)
-            .then((enriched) => {
+          // After RSS merge, enrich posters AND details for missing items
+          Promise.all([
+            enrichMissingPosters(merged),
+            enrichMissingDetails(merged)
+          ])
+            .then(([enrichedPosters, enrichedDetails]) => {
               if (!isMounted) return;
-              setMovies(enriched);
+
+              const movieMap = new Map<string, Movie>();
+              // Start with original merged list to keep order
+              for (const m of merged) movieMap.set(m.id, m);
+
+              // Update with posters
+              for (const m of enrichedPosters) {
+                const existing = movieMap.get(m.id);
+                if (existing) movieMap.set(m.id, { ...existing, ...m });
+              }
+
+              // Update with details
+              for (const m of enrichedDetails) {
+                const existing = movieMap.get(m.id);
+                if (existing) movieMap.set(m.id, { ...existing, ...m });
+              }
+
+              // Restore order from merged list
+              const finalMovies = merged.map(m => movieMap.get(m.id)!);
+              setMovies(finalMovies);
             })
-            .catch(() => {
-              // ignore enrichment errors
-            });
+            .catch(() => { /* ignore */ });
         }
       } catch (err) {
         if (!isMounted) return;
