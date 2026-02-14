@@ -102,8 +102,19 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
     const movies: Movie[] = itemNodes.map((item, index) => {
       const guid = item.querySelector("guid")?.textContent ?? `letterboxd-item-${index}`;
 
+      // Helper to get text from namespaced tags, handling browser variations
+      const getTag = (node: Element, tag: string) => {
+        // Try standard getElementsByTagName
+        const els = node.getElementsByTagName(tag);
+        if (els.length > 0) return els[0].textContent;
+        // Try with letterboxd: prefix just in case
+        const elsNS = node.getElementsByTagName(`letterboxd:${tag}`);
+        if (elsNS.length > 0) return elsNS[0].textContent;
+        return null;
+      };
+
       let filmTitle =
-        item.querySelector("letterboxd\\:filmTitle")?.textContent?.trim() ??
+        getTag(item, "filmTitle")?.trim() ??
         item.querySelector("title")?.textContent?.trim() ??
         "Untitled";
 
@@ -111,14 +122,15 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
       let rating = 0;
       const ratingFromTitle = parseRatingFromTitle(filmTitle);
 
-      // Clean title if it has the rating appended
+      // Clean title: "Movie Name, Year - ★★★" or "Movie Name - ★★★"
+      // 1. Remove rating suffix
       if (ratingFromTitle > 0) {
         filmTitle = filmTitle.replace(/ - [★½]+$/, "").trim();
         rating = ratingFromTitle;
       }
 
       // Try specific memberRating tag (takes precedence if valid)
-      const ratingText = item.querySelector("letterboxd\\:memberRating")?.textContent;
+      const ratingText = getTag(item, "memberRating");
       if (ratingText) {
         const parsed = Number.parseFloat(ratingText);
         if (!isNaN(parsed) && parsed > 0) {
@@ -126,13 +138,21 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
         }
       }
 
-      const yearText = item.querySelector("letterboxd\\:filmYear")?.textContent ?? "0";
-      const watchedDate = item.querySelector("letterboxd\\:watchedDate")?.textContent ?? "";
+      const yearText = getTag(item, "filmYear") ?? "0";
+      const watchedDate = getTag(item, "watchedDate") ?? "";
 
       const descriptionCdata = item.querySelector("description")?.textContent ?? "";
       const { poster, review } = parseDescriptionToPosterAndReview(descriptionCdata);
 
+      // 2. Remove ", Year" suffix if it matches the parsed year
+      // The RSS title tag is often "Title, Year" if the specific filmTitle tag wasn't found
       const year = Number.parseInt(yearText, 10) || 0;
+      if (year > 0) {
+        const yearSuffix = `, ${year}`;
+        if (filmTitle.endsWith(yearSuffix)) {
+          filmTitle = filmTitle.slice(0, -yearSuffix.length).trim();
+        }
+      }
 
       // At this stage Letterboxd RSS does not expose director, runtime or genres
       // directly, so we leave them empty / neutral. The UI is updated to handle
