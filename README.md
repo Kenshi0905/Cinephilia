@@ -91,6 +91,38 @@ This project is optimized for deployment on **Vercel** or **Netlify**.
 1.  Run `npm run build`.
 2.  Drag the `dist` folder to [Netlify Drop](https://app.netlify.com/drop).
 
+### Hosted Backend (MongoDB + Vercel)
+
+If your CSV assets or RSS fetches fail due to CORS or asset hosting in production, enable the backend:
+
+- MongoDB Atlas holds merged movie data.
+- Vercel Serverless Functions expose `GET /api/movies` and a scheduled `/api/rss-refresh` to keep data fresh.
+
+Setup steps:
+
+1. Create a free MongoDB Atlas cluster and database (`cinephilia` by default).
+2. Add Vercel Environment Variables:
+    - `MONGODB_URI`: Atlas connection string
+    - `MONGODB_DB` (optional): database name
+    - `LETTERBOXD_RSS_URL` (optional): your Letterboxd RSS feed
+3. Deploy on Vercel. A cron in `vercel.json` refreshes RSS every 6 hours.
+4. After deploy, initialize the database (creates unique index):
+   - Visit `https://<your-deployment>/api/setup` once (creates unique index on `movies.id`).
+5. (Optional) Seed Mongo from your local CSV exports:
+
+```bash
+export MONGODB_URI="your-atlas-uri"
+export MONGODB_DB="cinephilia"
+npm install
+npm run import:csv
+```
+
+Frontend will try the backend first (`/api/movies`). To use a remote API during local dev, set:
+
+```
+VITE_API_BASE_URL=https://your-vercel-deployment.vercel.app
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

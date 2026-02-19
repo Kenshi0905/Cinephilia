@@ -14,3 +14,5 @@ src/app/data/letterboxd-exports/*.csv
 *.log
 .DS_Store
 Thumbs.db
+.vercel
+.env*.local

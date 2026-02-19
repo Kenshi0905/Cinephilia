@@ -22,6 +22,24 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
 
     async function load() {
       try {
+        // First, try backend API if available
+        try {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+          const url = `${apiBase}/api/movies`;
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const data = await resp.json();
+            const apiMovies: Movie[] = Array.isArray(data?.movies) ? data.movies : [];
+            if (apiMovies.length > 0) {
+              setMovies(apiMovies);
+              setLoading(false);
+              return; // Skip local CSV/RSS when backend is present
+            }
+          }
+        } catch (_) {
+          // Ignore backend errors, fall back to local flow
+        }
+
         // Start from any existing cache (localStorage or CSV exports)
         const history = await loadHistoryFromExports();
         if (!isMounted) return;
