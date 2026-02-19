@@ -9,8 +9,16 @@ function getClientPromise() {
   if (!uri) throw new Error("MONGODB_URI not set");
 
   if (!globalThis.__mongoClientPromise) {
-    const client = new MongoClient(uri);
-    globalThis.__mongoClientPromise = client.connect();
+    const client = new MongoClient(uri, {
+      family: 4,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+    });
+    globalThis.__mongoClientPromise = client.connect().catch((error) => {
+      globalThis.__mongoClientPromise = undefined;
+      throw error;
+    });
   }
 
   return globalThis.__mongoClientPromise;

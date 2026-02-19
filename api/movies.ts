@@ -30,6 +30,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   } catch (err: any) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: err?.message || "Error" }));
+    res.end(
+      JSON.stringify({
+        error: err?.message || "Error",
+        code: err?.code || null,
+        name: err?.name || null,
+      }),
+    );
   }
 }
