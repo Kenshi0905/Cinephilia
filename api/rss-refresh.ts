@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "http";
 import type { Movie } from "./types";
-import { getCollection } from "./_lib/mongo";
+import { getCollection } from "./_lib/mongo.js";
 
 function parseRatingFromTitle(title: string): number {
   const match = title.match(/ - ([★½]+)$/);
