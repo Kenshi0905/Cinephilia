@@ -3,6 +3,7 @@ import { getCollection } from "./_lib/mongo";
 import type { Movie } from "./types";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  let client: any = null;
   try {
     if (req.method !== "GET") {
       res.statusCode = 405;
@@ -17,6 +18,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     const col = await getCollection<Movie>("movies");
 
+    // Get the client from the collection
+    client = col.getClient?.() || (col as any).db?.() || null;
+
     // Sort by watchedDate desc if available
     const cursor = col
       .find({}, { projection: { _id: 0 } })
@@ -30,6 +34,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ movies }));
   } catch (err: any) {
+    console.error("Error in /api/movies:", err);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: err?.message || "Internal Server Error" }));
