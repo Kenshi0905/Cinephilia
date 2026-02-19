@@ -1,20 +1,15 @@
-import { MongoClient, Db } from "mongodb";
+import { MongoClient } from "mongodb";
 
-export async function getDb(): Promise<Db> {
+export async function getDb() {
   const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB || "cinephilia";
-
-  if (!uri) {
-    throw new Error("MONGODB_URI is not set");
-  }
-
-  // Create a fresh client for each request in serverless
+  if (!uri) throw new Error("MONGODB_URI not set");
+  
   const client = new MongoClient(uri);
   await client.connect();
-  return client.db(dbName);
+  return client.db(process.env.MONGODB_DB || "cinephilia");
 }
 
-export async function getCollection<T = unknown>(name: string) {
+export async function getCollection(name: string) {
   const db = await getDb();
-  return db.collection<T>(name);
+  return db.collection(name);
 }

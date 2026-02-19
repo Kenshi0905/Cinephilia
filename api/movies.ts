@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import { getCollection } from "./_lib/mongo";
+import { MongoClient } from "mongodb";
 import type { Movie } from "./types";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  let client: any = null;
+  let client: MongoClient | null = null;
   try {
     if (req.method !== "GET") {
       res.statusCode = 405;
@@ -12,31 +12,38 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "MONGODB_URI not set" }));
+      return;
+    }
+
     const url = new URL(req.url || "", `http://${req.headers.host}`);
     const limit = Number.parseInt(url.searchParams.get("limit") || "200", 10) || 200;
     const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10) || 0;
 
-    const col = await getCollection<Movie>("movies");
+    client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(process.env.MONGODB_DB || "cinephilia");
+    const col = db.collection<Movie>("movies");
 
-    // Get the client from the collection
-    client = col.getClient?.() || (col as any).db?.() || null;
-
-    // Sort by watchedDate desc if available
-    const cursor = col
+    const movies = await col
       .find({}, { projection: { _id: 0 } })
       .sort({ watchedDate: -1 })
       .skip(skip)
-      .limit(limit);
-
-    const movies = await cursor.toArray();
+      .limit(limit)
+      .toArray();
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ movies }));
   } catch (err: any) {
-    console.error("Error in /api/movies:", err);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: err?.message || "Internal Server Error" }));
+    res.end(JSON.stringify({ error: err?.message || "Error" }));
+  } finally {
+    if (client) await client.close().catch(() => {});
   }
 }

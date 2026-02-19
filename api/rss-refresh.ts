@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import { getCollection } from "./_lib/mongo";
+import { MongoClient } from "mongodb";
 import type { Movie } from "./types";
 
 function parseRatingFromTitle(title: string): number {
@@ -32,11 +32,20 @@ function parseDescriptionToPosterAndReview(descriptionHtml: string): { poster: s
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  let client: MongoClient | null = null;
   try {
     if (req.method !== "GET" && req.method !== "POST") {
       res.statusCode = 405;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ error: "Method Not Allowed" }));
+      return;
+    }
+
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "MONGODB_URI not set" }));
       return;
     }
 
@@ -95,7 +104,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     if (toUpsert.length > 0) {
-      const col = await getCollection<Movie>("movies");
+      client = new MongoClient(uri);
+      await client.connect();
+      const db = client.db(process.env.MONGODB_DB || "cinephilia");
+      const col = db.collection<Movie>("movies");
       const ops = toUpsert.map((m) => ({
         updateOne: {
           filter: { id: m.id },
@@ -112,6 +124,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   } catch (err: any) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: err?.message || "Internal Server Error" }));
+    res.end(JSON.stringify({ error: err?.message || "Error" }));
+  } finally {
+    if (client) await client.close().catch(() => {});
   }
 }

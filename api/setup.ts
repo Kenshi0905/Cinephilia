@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import { getCollection } from "./_lib/mongo";
+import { MongoClient } from "mongodb";
 import type { Movie } from "./types";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  let client: MongoClient | null = null;
   try {
     if (req.method !== "GET" && req.method !== "POST") {
       res.statusCode = 405;
@@ -11,19 +12,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const col = await getCollection<Movie>("movies");
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "MONGODB_URI not set" }));
+      return;
+    }
 
-    // Create unique index on id field to ensure no duplicate upserts
+    client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(process.env.MONGODB_DB || "cinephilia");
+    const col = db.collection<Movie>("movies");
+
     const indexInfo = await col.createIndex({ id: 1 }, { unique: true });
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ 
-      message: "Database initialized",
-      indexName: indexInfo
-    }));
+    res.end(JSON.stringify({ message: "Database initialized", indexName: indexInfo }));
   } catch (err: any) {
-    // If index already exists, that's ok
     if (err?.code === 11000 || err?.message?.includes("E11000")) {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
@@ -33,6 +40,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: err?.message || "Internal Server Error" }));
+    res.end(JSON.stringify({ error: err?.message || "Error" }));
+  } finally {
+    if (client) await client.close().catch(() => {});
   }
 }
