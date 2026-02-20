@@ -18,34 +18,40 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
   const [error, setError] = useState<string | null>(null);
   const hasRunEnrichmentRef = useRef(false);
 
+  async function fetchApiMoviesWithTimeout(timeoutMs: number): Promise<Movie[] | null> {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+    if (!shouldAttemptBackendApi(apiBase)) return null;
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const url = `${apiBase}/api/movies`;
+      const resp = await fetch(url, { signal: controller.signal });
+      if (!resp.ok) return null;
+
+      const data = await resp.json();
+      const apiMovies: Movie[] = Array.isArray(data?.movies) ? data.movies : [];
+      return apiMovies.length > 0 ? apiMovies : null;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
   useEffect(() => {
     let isMounted = true;
     const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
     async function load() {
       try {
-        // First, try backend API if available
-        try {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || "";
-          if (shouldAttemptBackendApi(apiBase)) {
-            const url = `${apiBase}/api/movies`;
-            const resp = await fetch(url);
-            if (resp.ok) {
-              const data = await resp.json();
-              const apiMovies: Movie[] = Array.isArray(data?.movies) ? data.movies : [];
-              if (apiMovies.length > 0) {
-                setMovies(apiMovies);
-                setLoading(false);
-                return; // Skip local CSV/RSS when backend is present
-              }
-            }
-          }
-        } catch (_) {
-          // Ignore backend errors, fall back to local flow
-        }
+        // Start local history and backend API in parallel so UI doesn't block on slow serverless cold starts.
+        const historyPromise = loadHistoryFromExports();
+        const apiPromise = fetchApiMoviesWithTimeout(1800);
 
         // Start from any existing cache (localStorage or CSV exports)
-        const history = await loadHistoryFromExports();
+        const history = await historyPromise;
         if (!isMounted) return;
 
         if (history.length > 0) {
@@ -69,6 +75,15 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
               })
               .catch(() => { /* ignore */ });
           }
+        }
+
+        // If backend API is healthy, prefer it, but never block first paint on it.
+        const apiMovies = await apiPromise;
+        if (!isMounted) return;
+        if (apiMovies && apiMovies.length > 0) {
+          setMovies(apiMovies);
+          setLoading(false);
+          return;
         }
 
         const remoteMovies = await fetchLetterboxdMovies();

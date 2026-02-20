@@ -6,6 +6,20 @@ import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
 export function MovieGrid() {
   const { movies, loading, error } = useOutletContext<UseLetterboxdMoviesResult>();
 
+  if (loading && movies.length === 0) {
+    return (
+      <div className="min-h-screen pt-32 pb-24 px-8 relative overflow-hidden flex items-center justify-center">
+        <div className="text-center space-y-6">
+          <div className="mx-auto h-10 w-10 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
+          <div className="space-y-2">
+            <p className="text-white/85 tracking-[0.2em] text-xs uppercase">Loading Archive</p>
+            <p className="text-white/40 text-sm">Fetching films, posters, and notes…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Use only movies that have a poster for the hero ring,
   // so the front page always shows actual artwork.
   const moviesWithPoster = movies.filter((m) => !!m.poster);
