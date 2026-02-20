@@ -37,8 +37,9 @@ export async function enrichMissingPosters(movies: Movie[]): Promise<Movie[]> {
   const cache = loadPosterCache();
   const updated = [...movies];
   let changed = false;
-  let fetchedCount = 0;
-  const MAX_FETCH_PER_RUN = 3; // Reduced to avoid issues
+  const MAX_FETCH_PER_RUN = 12;
+  const timeoutMs = 4000;
+  const toFetch: Array<{ index: number; url: string; movie: Movie }> = [];
 
   for (let i = 0; i < updated.length; i++) {
     const movie = updated[i];
@@ -60,32 +61,48 @@ export async function enrichMissingPosters(movies: Movie[]): Promise<Movie[]> {
       continue;
     }
 
-    if (fetchedCount >= MAX_FETCH_PER_RUN) continue;
-
-    try {
-      const response = await fetchWithRssProxyFallback(url);
-      if (!response.ok) continue;
-      const html = await response.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const ogImage =
-        doc
-          .querySelector('meta[property="og:image"]')
-          ?.getAttribute("content") ?? "";
-
-      if (!ogImage) continue;
-
-      cache[url] = ogImage;
-      updated[i] = {
-        ...movie,
-        poster: ogImage,
-        backdrop: movie.backdrop || ogImage,
-      };
-      changed = true;
-      fetchedCount += 1;
-    } catch {
-      // ignore network/parse errors and move on
+    if (toFetch.length < MAX_FETCH_PER_RUN) {
+      toFetch.push({ index: i, url, movie });
     }
+  }
+
+  const fetched = await Promise.all(
+    toFetch.map(async ({ index, url, movie }) => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetchWithRssProxyFallback(url, { signal: controller.signal });
+        if (!response.ok) return null;
+
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const ogImage =
+          doc
+            .querySelector('meta[property="og:image"]')
+            ?.getAttribute("content") ?? "";
+
+        if (!ogImage) return null;
+        return { index, movie, url, ogImage };
+      } catch {
+        return null;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }),
+  );
+
+  for (const item of fetched) {
+    if (!item) continue;
+    const { index, movie, url, ogImage } = item;
+    cache[url] = ogImage;
+    updated[index] = {
+      ...movie,
+      poster: ogImage,
+      backdrop: movie.backdrop || ogImage,
+    };
+    changed = true;
   }
 
   if (changed) {

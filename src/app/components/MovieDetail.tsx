@@ -1,13 +1,41 @@
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useOutletContext } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, StarHalf } from "lucide-react";
 import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
+import { enrichMissingPosters } from "../data/posters";
 
 export function MovieDetail() {
   const { id } = useParams();
   const { movies } = useOutletContext<UseLetterboxdMoviesResult>();
   const decodedId = id ? decodeURIComponent(id) : id;
-  const movie = movies.find((m) => m.id === decodedId);
+  const movie = useMemo(() => movies.find((m) => m.id === decodedId), [movies, decodedId]);
+  const [posterOverride, setPosterOverride] = useState<string>("");
+
+  useEffect(() => {
+    let active = true;
+
+    if (!movie || movie.poster) {
+      setPosterOverride("");
+      return;
+    }
+
+    enrichMissingPosters([movie])
+      .then((enriched) => {
+        if (!active) return;
+        const maybePoster = enriched[0]?.poster || "";
+        if (maybePoster) {
+          setPosterOverride(maybePoster);
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [movie]);
 
   if (!movie) {
     return (
@@ -17,6 +45,7 @@ export function MovieDetail() {
     );
   }
 
+  const displayPoster = posterOverride || movie.poster;
   const watchedDateObj = movie.watchedDate ? new Date(movie.watchedDate) : null;
   const watchedDateLabel =
     watchedDateObj && !Number.isNaN(watchedDateObj.getTime())
@@ -37,11 +66,17 @@ export function MovieDetail() {
         transition={{ duration: 0.8 }}
       >
         <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black via-transparent to-transparent z-10 opacity-80 md:opacity-50" />
-        <img
-          src={movie.poster}
-          alt={movie.title}
-          className="w-full h-full object-cover"
-        />
+        {displayPoster ? (
+          <img
+            src={displayPoster}
+            alt={movie.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-white/5 flex items-center justify-center">
+            <span className="text-white/30 text-xs tracking-widest uppercase">Poster loading…</span>
+          </div>
+        )}
         {/* Mobile-only backdrop gradient for text readability if overlap happens */}
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black to-transparent md:hidden" />
       </motion.div>
