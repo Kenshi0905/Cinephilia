@@ -8,7 +8,7 @@ const watchedUrl = `${assetBase}letterboxd-exports/watched.csv`;
 const diaryUrl = `${assetBase}letterboxd-exports/diary.csv`;
 const ratingsUrl = `${assetBase}letterboxd-exports/ratings.csv`;
 
-const STORAGE_KEY = "cinephilia_movie_history";
+const STORAGE_KEY = "cinephilia_movie_history_v2";
 
 function normalizeKey(title: string, year: number | string): string {
   const cleanedTitle = title
@@ -20,10 +20,6 @@ function normalizeKey(title: string, year: number | string): string {
 }
 
 function movieKey(movie: Movie): string {
-  const id = movie.id?.toLowerCase() ?? "";
-  if (id.startsWith("http://") || id.startsWith("https://")) {
-    return id;
-  }
   return normalizeKey(movie.title, movie.year);
 }
 

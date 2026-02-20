@@ -1,4 +1,5 @@
 import type { Movie } from "./movies";
+import { fetchWithRssProxyFallback } from "./network";
 
 function getEnvRssUrl(): string | null {
   const url = import.meta.env.VITE_LETTERBOXD_RSS_URL as string | undefined;
@@ -7,24 +8,6 @@ function getEnvRssUrl(): string | null {
   // Fallback to the user's public Letterboxd RSS feed.
   // This can be overridden via VITE_LETTERBOXD_RSS_URL.
   return "https://letterboxd.com/kenshi05/rss/";
-}
-
-function buildFetchUrl(rssUrl: string): string {
-  const proxyTemplate = import.meta.env
-    .VITE_RSS_PROXY_TEMPLATE as string | undefined;
-
-  // If explicitly disabled, hit the RSS URL directly
-  if (proxyTemplate === "none") {
-    return rssUrl;
-  }
-
-  // If a template is provided, substitute {url}
-  if (proxyTemplate && proxyTemplate.length > 0) {
-    return proxyTemplate.replace("{url}", encodeURIComponent(rssUrl));
-  }
-
-  // Default to a public CORS-friendly proxy for development / personal use
-  return `https://cors.isomorphic-git.org/${rssUrl}`;
 }
 
 function parseRatingFromTitle(title: string): number {
@@ -87,7 +70,7 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
   }
 
   try {
-    const response = await fetch(buildFetchUrl(rssUrl));
+    const response = await fetchWithRssProxyFallback(rssUrl);
     if (!response.ok) {
       throw new Error(`Letterboxd RSS request failed with status ${response.status}`);
     }
@@ -101,6 +84,7 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
 
     const movies: Movie[] = itemNodes.map((item, index) => {
       const guid = item.querySelector("guid")?.textContent ?? `letterboxd-item-${index}`;
+      const link = item.querySelector("link")?.textContent?.trim() ?? "";
 
       // Helper to get text from namespaced tags, handling browser variations
       const getTag = (node: Element, tag: string) => {
@@ -158,7 +142,7 @@ export async function fetchLetterboxdMovies(): Promise<Movie[] | null> {
       // directly, so we leave them empty / neutral. The UI is updated to handle
       // missing values gracefully.
       const movie: Movie = {
-        id: guid,
+        id: link || guid,
         title: filmTitle,
         year,
         director: "",

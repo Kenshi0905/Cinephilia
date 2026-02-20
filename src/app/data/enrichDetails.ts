@@ -1,21 +1,7 @@
 import type { Movie } from "./movies";
+import { fetchWithRssProxyFallback } from "./network";
 
 const DETAILS_CACHE_KEY = "cinephilia-details-cache-v1";
-
-function buildProxyUrl(targetUrl: string): string {
-    const proxyTemplate = import.meta.env
-        .VITE_RSS_PROXY_TEMPLATE as string | undefined;
-
-    if (proxyTemplate === "none") {
-        return targetUrl;
-    }
-
-    if (proxyTemplate && proxyTemplate.length > 0) {
-        return proxyTemplate.replace("{url}", encodeURIComponent(targetUrl));
-    }
-
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-}
 
 function loadDetailsCache(): Record<string, { rating: number; review: string }> {
     if (typeof window === "undefined") return {};
@@ -79,7 +65,7 @@ export async function enrichMissingDetails(movies: Movie[]): Promise<Movie[]> {
         if (fetchedCount >= MAX_FETCH_PER_RUN) continue;
 
         try {
-            const response = await fetch(buildProxyUrl(url));
+            const response = await fetchWithRssProxyFallback(url);
             if (!response.ok) continue;
 
             const html = await response.text();

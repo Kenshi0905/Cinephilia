@@ -19,7 +19,8 @@ export function MovieGrid() {
   ] as const;
 
   const maxVisible = ringConfigs.reduce((sum, r) => sum + r.maxCount, 0);
-  const visibleMovies = moviesWithPoster.slice(0, maxVisible);
+  const sourceMovies = moviesWithPoster.length > 0 ? moviesWithPoster : movies;
+  const visibleMovies = sourceMovies.slice(0, maxVisible);
 
   const getCircularPosition = (index: number, total: number, radius: number) => {
     // Start from the top (-90deg) so the circle is nicely aligned

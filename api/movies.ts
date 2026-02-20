@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import type { Movie } from "./types";
+import type { Movie } from "./types.js";
 import { getCollection } from "./_lib/mongo.js";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {

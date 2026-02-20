@@ -18,11 +18,17 @@ export function MovieCard({ movie }: MovieCardProps) {
         whileHover={{ scale: 1.03, opacity: 1 }}
       >
         {/* Poster Image */}
-        <img
-          src={movie.poster}
-          alt={movie.title}
-          className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
-        />
+        {movie.poster ? (
+          <img
+            src={movie.poster}
+            alt={movie.title}
+            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full bg-white/10 flex items-center justify-center px-3 text-center">
+            <span className="text-white/70 text-xs tracking-wide line-clamp-3">{movie.title}</span>
+          </div>
+        )}
         
         {/* Glass Overlay on Hover */}
         <motion.div

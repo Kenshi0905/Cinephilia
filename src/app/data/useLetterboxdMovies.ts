@@ -4,6 +4,7 @@ import { fetchLetterboxdMovies } from "./letterboxd";
 import { loadHistoryFromExports, mergeAndCacheHistory } from "./history/historyCache";
 import { enrichMissingPosters } from "./posters";
 import { enrichMissingDetails } from "./enrichDetails";
+import { shouldAttemptBackendApi } from "./network";
 
 interface UseLetterboxdMoviesResult {
   movies: Movie[];
@@ -25,15 +26,17 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
         // First, try backend API if available
         try {
           const apiBase = import.meta.env.VITE_API_BASE_URL || "";
-          const url = `${apiBase}/api/movies`;
-          const resp = await fetch(url);
-          if (resp.ok) {
-            const data = await resp.json();
-            const apiMovies: Movie[] = Array.isArray(data?.movies) ? data.movies : [];
-            if (apiMovies.length > 0) {
-              setMovies(apiMovies);
-              setLoading(false);
-              return; // Skip local CSV/RSS when backend is present
+          if (shouldAttemptBackendApi(apiBase)) {
+            const url = `${apiBase}/api/movies`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const data = await resp.json();
+              const apiMovies: Movie[] = Array.isArray(data?.movies) ? data.movies : [];
+              if (apiMovies.length > 0) {
+                setMovies(apiMovies);
+                setLoading(false);
+                return; // Skip local CSV/RSS when backend is present
+              }
             }
           }
         } catch (_) {

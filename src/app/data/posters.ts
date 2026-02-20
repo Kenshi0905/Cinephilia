@@ -1,21 +1,7 @@
 import type { Movie } from "./movies";
+import { fetchWithRssProxyFallback } from "./network";
 
 const POSTER_CACHE_KEY = "cinephilia-poster-cache-v1";
-
-function buildProxyUrl(targetUrl: string): string {
-  const proxyTemplate = import.meta.env
-    .VITE_RSS_PROXY_TEMPLATE as string | undefined;
-
-  if (proxyTemplate === "none") {
-    return targetUrl;
-  }
-
-  if (proxyTemplate && proxyTemplate.length > 0) {
-    return proxyTemplate.replace("{url}", encodeURIComponent(targetUrl));
-  }
-
-  return `https://cors.isomorphic-git.org/${targetUrl}`;
-}
 
 function loadPosterCache(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -77,7 +63,7 @@ export async function enrichMissingPosters(movies: Movie[]): Promise<Movie[]> {
     if (fetchedCount >= MAX_FETCH_PER_RUN) continue;
 
     try {
-      const response = await fetch(buildProxyUrl(url));
+      const response = await fetchWithRssProxyFallback(url);
       if (!response.ok) continue;
       const html = await response.text();
       const parser = new DOMParser();

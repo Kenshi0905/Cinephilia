@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import type { Movie } from "./types";
+import type { Movie } from "./types.js";
 import { getCollection } from "./_lib/mongo.js";
 
 function parseRatingFromTitle(title: string): number {
@@ -55,6 +55,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     for (const raw of items) {
       const guid = (raw.match(/<guid>\s*([^<]+)\s*<\/guid>/) || [])[1] || "";
+      const link = (raw.match(/<link>\s*([^<]+)\s*<\/link>/) || [])[1] || "";
       const titleRaw = (raw.match(/<title>\s*([^<]+)\s*<\/title>/) || [])[1] || "Untitled";
       let filmTitle = titleRaw.trim();
       let rating = parseRatingFromTitle(filmTitle);
@@ -79,7 +80,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       const movie: Movie = {
-        id: guid || `${filmTitle}-${watchedDate || "unknown"}`,
+        id: link || guid || `${filmTitle}-${watchedDate || "unknown"}`,
         title: filmTitle,
         year,
         director: "",
