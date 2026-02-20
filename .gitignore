@@ -4,11 +4,6 @@ node_modules
 .env
 .env.*
 
-# Private Letterboxd exports and other local data dumps
-src/app/data/letterboxd-exports/*.csv
-!src/app/data/letterboxd-exports/ratings.csv
-*.csv
-!ratings.csv
 
 # OS/editor junk
 *.log

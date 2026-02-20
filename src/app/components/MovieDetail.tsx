@@ -1,11 +1,11 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useOutletContext } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Star, StarHalf, Calendar, Clock } from "lucide-react";
-import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
+import { ArrowLeft, Star, StarHalf } from "lucide-react";
+import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
 
 export function MovieDetail() {
   const { id } = useParams();
-  const { movies } = useLetterboxdMovies();
+  const { movies } = useOutletContext<UseLetterboxdMoviesResult>();
   const decodedId = id ? decodeURIComponent(id) : id;
   const movie = movies.find((m) => m.id === decodedId);
 

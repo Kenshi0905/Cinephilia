@@ -101,9 +101,7 @@ async function run() {
   // Merge distinct by normalized key to avoid duplicates
   const map = new Map<string, Movie>();
   for (const m of allMovies) {
-    const key = m.id.startsWith("http://") || m.id.startsWith("https://")
-      ? m.id.toLowerCase()
-      : normalizeKey(m.title, m.year);
+    const key = normalizeKey(m.title, m.year);
 
     const existing = map.get(key);
     if (!existing) {

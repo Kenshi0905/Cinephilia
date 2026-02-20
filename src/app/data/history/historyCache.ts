@@ -9,6 +9,7 @@ const diaryUrl = `${assetBase}letterboxd-exports/diary.csv`;
 const ratingsUrl = `${assetBase}letterboxd-exports/ratings.csv`;
 
 const STORAGE_KEY = "cinephilia_movie_history_v2";
+const unavailableCsvUrls = new Set<string>();
 
 function normalizeKey(title: string, year: number | string): string {
   const cleanedTitle = title
@@ -24,17 +25,16 @@ function movieKey(movie: Movie): string {
 }
 
 async function loadCsv(url: string): Promise<Record<string, string>[]> {
-  // Add cache buster to ensure we get the latest file content
-  // URLs from Vite imports might already have query params (e.g. ?url)
-  // but usually for assets they are just paths.
-  const now = Date.now();
-  const separator = url.includes("?") ? "&" : "?";
-  const cleanUrl = `${url}${separator}t=${now}`;
+  if (unavailableCsvUrls.has(url)) {
+    return [];
+  }
 
   try {
-    const response = await fetch(cleanUrl);
+    const response = await fetch(url);
     if (!response.ok) {
-      // Try without cache buster if it fails? No, just throw.
+      if (response.status === 404) {
+        unavailableCsvUrls.add(url);
+      }
       console.warn(`Failed to load CSV ${url}: ${response.status}`);
       return [];
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Movie } from "./movies";
 import { fetchLetterboxdMovies } from "./letterboxd";
 import { loadHistoryFromExports, mergeAndCacheHistory } from "./history/historyCache";
@@ -6,7 +6,7 @@ import { enrichMissingPosters } from "./posters";
 import { enrichMissingDetails } from "./enrichDetails";
 import { shouldAttemptBackendApi } from "./network";
 
-interface UseLetterboxdMoviesResult {
+export interface UseLetterboxdMoviesResult {
   movies: Movie[];
   loading: boolean;
   error: string | null;
@@ -16,10 +16,11 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const hasRunEnrichmentRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
-    const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+    const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
     async function load() {
       try {
@@ -49,6 +50,7 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
 
         if (history.length > 0) {
           setMovies(history);
+          setLoading(false);
 
           // Only enrich posters for movies that are unlikely to be in the RSS feed (index 50+)
           const moviesToEnrich = history.slice(50);
@@ -76,35 +78,46 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
           const merged = mergeAndCacheHistory(history, remoteMovies);
           setMovies(merged);
 
-          // After RSS merge, enrich posters AND details for missing items
-          Promise.all([
-            enrichMissingPosters(merged),
-            enrichMissingDetails(merged)
-          ])
-            .then(([enrichedPosters, enrichedDetails]) => {
-              if (!isMounted) return;
+          // Run heavy enrichments only once per app session to keep navigation smooth.
+          if (!hasRunEnrichmentRef.current) {
+            hasRunEnrichmentRef.current = true;
 
-              const movieMap = new Map<string, Movie>();
-              // Start with original merged list to keep order
-              for (const m of merged) movieMap.set(m.id, m);
+            const shouldEnrichDetails =
+              (import.meta.env.VITE_ENABLE_DETAIL_ENRICHMENT as string | undefined) === "true";
 
-              // Update with posters
-              for (const m of enrichedPosters) {
-                const existing = movieMap.get(m.id);
-                if (existing) movieMap.set(m.id, { ...existing, ...m });
-              }
+            const detailEnrichmentPromise = shouldEnrichDetails
+              ? enrichMissingDetails(merged)
+              : Promise.resolve(merged);
 
-              // Update with details
-              for (const m of enrichedDetails) {
-                const existing = movieMap.get(m.id);
-                if (existing) movieMap.set(m.id, { ...existing, ...m });
-              }
+            Promise.all([
+              enrichMissingPosters(merged),
+              detailEnrichmentPromise,
+            ])
+              .then(([enrichedPosters, enrichedDetails]) => {
+                if (!isMounted) return;
 
-              // Restore order from merged list
-              const finalMovies = merged.map(m => movieMap.get(m.id)!);
-              setMovies(finalMovies);
-            })
-            .catch(() => { /* ignore */ });
+                const movieMap = new Map<string, Movie>();
+                // Start with original merged list to keep order
+                for (const m of merged) movieMap.set(m.id, m);
+
+                // Update with posters
+                for (const m of enrichedPosters) {
+                  const existing = movieMap.get(m.id);
+                  if (existing) movieMap.set(m.id, { ...existing, ...m });
+                }
+
+                // Update with details
+                for (const m of enrichedDetails) {
+                  const existing = movieMap.get(m.id);
+                  if (existing) movieMap.set(m.id, { ...existing, ...m });
+                }
+
+                // Restore order from merged list
+                const finalMovies = merged.map(m => movieMap.get(m.id)!);
+                setMovies(finalMovies);
+              })
+              .catch(() => { /* ignore */ });
+          }
         }
       } catch (err) {
         if (!isMounted) return;

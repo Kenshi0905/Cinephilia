@@ -1,9 +1,10 @@
 import React from "react";
+import { useOutletContext } from "react-router-dom";
 import { MovieCard } from "./MovieCard";
-import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
+import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
 
 export function MovieGrid() {
-  const { movies, loading, error } = useLetterboxdMovies();
+  const { movies, loading, error } = useOutletContext<UseLetterboxdMoviesResult>();
 
   // Use only movies that have a poster for the hero ring,
   // so the front page always shows actual artwork.
