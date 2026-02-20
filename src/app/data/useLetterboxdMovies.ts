@@ -17,6 +17,7 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const hasRunEnrichmentRef = useRef(false);
+  const hasRunHistoryPosterEnrichmentRef = useRef(false);
 
   async function fetchApiMoviesWithTimeout(timeoutMs: number): Promise<Movie[] | null> {
     const apiBase = import.meta.env.VITE_API_BASE_URL || "";
@@ -42,7 +43,7 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
 
   useEffect(() => {
     let isMounted = true;
-    const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+    const REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
 
     async function load() {
       try {
@@ -61,7 +62,8 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
           // Only enrich posters for movies that are unlikely to be in the RSS feed (index 50+)
           const moviesToEnrich = history.slice(50);
 
-          if (moviesToEnrich.length > 0) {
+          if (moviesToEnrich.length > 0 && !hasRunHistoryPosterEnrichmentRef.current) {
+            hasRunHistoryPosterEnrichmentRef.current = true;
             enrichMissingPosters(moviesToEnrich)
               .then((enrichedTail) => {
                 if (!isMounted) return;

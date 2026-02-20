@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Star, StarHalf } from "lucide-react";
 import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
 import { enrichMissingPosters } from "../data/posters";
+import { getOptimizedPosterSrcSet, getOptimizedPosterUrl } from "../data/posterUrl";
 
 export function MovieDetail() {
   const { id } = useParams();
@@ -46,6 +47,10 @@ export function MovieDetail() {
   }
 
   const displayPoster = posterOverride || movie.poster;
+  const detailPoster = displayPoster ? getOptimizedPosterUrl(displayPoster, "detail") : "";
+  const detailPosterSrcSet = displayPoster
+    ? getOptimizedPosterSrcSet(displayPoster, [500, 700, 900, 1200])
+    : undefined;
   const watchedDateObj = movie.watchedDate ? new Date(movie.watchedDate) : null;
   const watchedDateLabel =
     watchedDateObj && !Number.isNaN(watchedDateObj.getTime())
@@ -68,8 +73,13 @@ export function MovieDetail() {
         <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black via-transparent to-transparent z-10 opacity-80 md:opacity-50" />
         {displayPoster ? (
           <img
-            src={displayPoster}
+            src={detailPoster}
+            srcSet={detailPosterSrcSet}
+            sizes="(max-width: 768px) 100vw, 40vw"
             alt={movie.title}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
             className="w-full h-full object-cover"
           />
         ) : (

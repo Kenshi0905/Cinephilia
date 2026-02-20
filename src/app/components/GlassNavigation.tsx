@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Film, User, Search, X } from "lucide-react";
 import { useLetterboxdMovies } from "../data/useLetterboxdMovies";
 import type { Movie } from "../data/movies";
+import { getOptimizedPosterSrcSet, getOptimizedPosterUrl } from "../data/posterUrl";
 
 export function GlassNavigation() {
   const location = useLocation();
@@ -196,8 +197,12 @@ export function GlassNavigation() {
                         <div className="w-10 h-14 bg-white/5 rounded-md overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow-md transition-all relative">
                           {movie.poster ? (
                             <img
-                              src={movie.poster}
+                              src={getOptimizedPosterUrl(movie.poster, "tiny")}
+                              srcSet={getOptimizedPosterSrcSet(movie.poster, [80, 120, 160])}
+                              sizes="40px"
                               alt=""
+                              loading="lazy"
+                              decoding="async"
                               className="w-full h-full object-cover"
                             />
                           ) : (

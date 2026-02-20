@@ -2,12 +2,16 @@ import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { Star } from "lucide-react";
 import type { Movie } from "../data/movies";
+import { getOptimizedPosterSrcSet, getOptimizedPosterUrl } from "../data/posterUrl";
 
 interface MovieCardProps {
   movie: Movie;
 }
 
 export function MovieCard({ movie }: MovieCardProps) {
+  const cardPoster = movie.poster ? getOptimizedPosterUrl(movie.poster, "card") : "";
+  const cardPosterSrcSet = movie.poster ? getOptimizedPosterSrcSet(movie.poster, [200, 300, 400]) : undefined;
+
   return (
     <Link to={`/movie/${encodeURIComponent(movie.id)}`} className="pointer-events-auto">
       <motion.div
@@ -20,8 +24,12 @@ export function MovieCard({ movie }: MovieCardProps) {
         {/* Poster Image */}
         {movie.poster ? (
           <img
-            src={movie.poster}
+            src={cardPoster}
+            srcSet={cardPosterSrcSet}
+            sizes="(max-width: 768px) 110px, 140px"
             alt={movie.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
           />
         ) : (
