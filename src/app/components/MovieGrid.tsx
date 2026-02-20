@@ -6,7 +6,7 @@ import type { UseLetterboxdMoviesResult } from "../data/useLetterboxdMovies";
 export function MovieGrid() {
   const { movies, loading, error } = useOutletContext<UseLetterboxdMoviesResult>();
 
-  if (loading && movies.length === 0) {
+  if (loading) {
     return (
       <div className="min-h-screen pt-32 pb-24 px-8 relative overflow-hidden flex items-center justify-center">
         <div className="text-center space-y-6">

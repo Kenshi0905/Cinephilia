@@ -11,7 +11,13 @@ function resizeLetterboxdPoster(url: string, width: number, height: number): str
     return url;
   }
 
-  return url.replace(/-0-\d+-0-\d+-crop\./, `-0-${width}-0-${height}-crop.`);
+  const originalMatch = url.match(/-0-(\d+)-0-(\d+)-crop\./);
+  const maxWidth = originalMatch ? Number.parseInt(originalMatch[1], 10) : width;
+  const maxHeight = originalMatch ? Number.parseInt(originalMatch[2], 10) : height;
+  const safeWidth = Number.isFinite(maxWidth) ? Math.min(width, maxWidth) : width;
+  const safeHeight = Number.isFinite(maxHeight) ? Math.min(height, maxHeight) : height;
+
+  return url.replace(/-0-\d+-0-\d+-crop\./, `-0-${safeWidth}-0-${safeHeight}-crop.`);
 }
 
 export function getOptimizedPosterUrl(url: string, size: PosterSize): string {

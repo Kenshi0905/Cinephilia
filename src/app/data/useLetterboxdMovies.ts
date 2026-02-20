@@ -57,7 +57,6 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
 
         if (history.length > 0) {
           setMovies(history);
-          setLoading(false);
 
           // Only enrich posters for movies that are unlikely to be in the RSS feed (index 50+)
           const moviesToEnrich = history.slice(50);
@@ -84,7 +83,6 @@ export function useLetterboxdMovies(): UseLetterboxdMoviesResult {
         if (!isMounted) return;
         if (apiMovies && apiMovies.length > 0) {
           setMovies(apiMovies);
-          setLoading(false);
           return;
         }
 
